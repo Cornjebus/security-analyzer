@@ -27,7 +27,7 @@ A Claude Code skill for comprehensive security vulnerability analysis. Scans cod
 
 ```bash
 # Clone repo and cd into any project
-git clone https://github.com/YOUR_USERNAME/security-analyzer.git
+git clone https://github.com/Cornjebus/security-analyzer.git
 cd security-analyzer
 
 # The skill is automatically available in this directory
@@ -38,7 +38,7 @@ claude
 
 ```bash
 # Clone repo
-git clone https://github.com/YOUR_USERNAME/security-analyzer.git
+git clone https://github.com/Cornjebus/security-analyzer.git
 
 # Copy skill to your personal skills directory
 cp -r security-analyzer/.claude/skills/security-analyzer ~/.claude/skills/
