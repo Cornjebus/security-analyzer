@@ -23,9 +23,25 @@ A Claude Code skill for comprehensive security vulnerability analysis. Scans cod
 
 ## Installation
 
-Claude Code automatically discovers skills from specific directories. No install command needed — just put the files in the right place.
+Claude Code automatically discovers skills from specific directories. Choose the method that works best for you.
 
-### Option 1: Install Globally (Available in All Projects)
+### Option 1: Let Claude Install It (Easiest)
+
+Just tell Claude Code to install the skill for you:
+
+```
+You: "Install the security-analyzer skill from https://github.com/Cornjebus/security-analyzer.git"
+```
+
+Or for global installation:
+
+```
+You: "Install the security-analyzer skill globally from https://github.com/Cornjebus/security-analyzer.git"
+```
+
+Claude will clone the repo, copy the skill to the correct location, and clean up automatically.
+
+### Option 2: Install Globally (Available in All Projects)
 
 ```bash
 # Create the skills directory if it doesn't exist
