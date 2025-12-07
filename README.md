@@ -23,19 +23,41 @@ A Claude Code skill for comprehensive security vulnerability analysis. Scans cod
 
 ## Installation
 
-### Option 1: Copy to skills directory
+### Option 1: Clone and use directly (Project Skill)
+
+```bash
+# Clone repo and cd into any project
+git clone https://github.com/YOUR_USERNAME/security-analyzer.git
+cd security-analyzer
+
+# The skill is automatically available in this directory
+claude
+```
+
+### Option 2: Install for personal use (User Skill)
 
 ```bash
 # Clone repo
 git clone https://github.com/YOUR_USERNAME/security-analyzer.git
 
-# Copy skill to Claude Code
-cp -r security-analyzer/security-analyzer ~/.claude/skills/
+# Copy skill to your personal skills directory
+cp -r security-analyzer/.claude/skills/security-analyzer ~/.claude/skills/
+
+# Now available in all your Claude Code sessions
+claude
 ```
 
-### Option 2: Download .skill file
+### Option 3: Add to existing project
 
-Download `security-analyzer.skill` from [Releases](../../releases) and import into Claude Code.
+```bash
+# Copy the .claude/skills directory to your project
+cp -r path/to/security-analyzer/.claude your-project/
+
+# Commit to share with your team
+cd your-project
+git add .claude
+git commit -m "Add security-analyzer skill"
+```
 
 ## Usage
 
@@ -110,13 +132,18 @@ def test_cve_2024_4068_resolved():
 
 ```
 security-analyzer/
-├── SKILL.md                        # Main workflow (triggers on "security scan", "vulnerability", "CVE", etc.)
-├── scripts/
-│   ├── discover_env.py             # Scans codebase for assets
-│   ├── fetch_vulns.py              # Queries OSV.dev API
-│   └── generate_report.py          # Creates markdown reports
-└── references/
-    └── report-templates.md         # Output format specs
+├── .claude/
+│   └── skills/
+│       └── security-analyzer/
+│           ├── SKILL.md                # Main skill file (auto-discovered by Claude Code)
+│           ├── scripts/
+│           │   ├── discover_env.py     # Scans codebase for assets
+│           │   ├── fetch_vulns.py      # Queries OSV.dev API
+│           │   └── generate_report.py  # Creates markdown reports
+│           └── references/
+│               └── report-templates.md # Output format specs
+├── README.md
+└── LICENSE
 ```
 
 ## Risk Scoring Formula
@@ -170,8 +197,8 @@ Edit `SKILL.md` to adjust:
 
 ## Requirements
 
-- Claude Code with skills enabled
-- Python 3.8+ (for scripts)
+- [Claude Code](https://claude.com/claude-code) CLI
+- Python 3.8+ (for helper scripts)
 - Network access to OSV.dev API
 
 ## License
@@ -187,6 +214,7 @@ PRs welcome. Please include:
 
 ## Related
 
-- [Anthropic Skills Documentation](https://docs.anthropic.com/claude-code/skills)
+- [Claude Code Documentation](https://docs.anthropic.com/en/docs/claude-code)
 - [OWASP Top 10](https://owasp.org/www-project-top-ten/)
 - [CISA Known Exploited Vulnerabilities](https://www.cisa.gov/known-exploited-vulnerabilities-catalog)
+- [OSV.dev](https://osv.dev/) - Open Source Vulnerability Database
