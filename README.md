@@ -23,41 +23,82 @@ A Claude Code skill for comprehensive security vulnerability analysis. Scans cod
 
 ## Installation
 
-### Option 1: Clone and use directly (Project Skill)
+Claude Code automatically discovers skills from specific directories. No install command needed — just put the files in the right place.
+
+### Option 1: Install Globally (Available in All Projects)
 
 ```bash
-# Clone repo and cd into any project
+# Create the skills directory if it doesn't exist
+mkdir -p ~/.claude/skills
+
+# Clone and copy the skill
 git clone https://github.com/Cornjebus/security-analyzer.git
-cd security-analyzer
-
-# The skill is automatically available in this directory
-claude
-```
-
-### Option 2: Install for personal use (User Skill)
-
-```bash
-# Clone repo
-git clone https://github.com/Cornjebus/security-analyzer.git
-
-# Copy skill to your personal skills directory
 cp -r security-analyzer/.claude/skills/security-analyzer ~/.claude/skills/
 
-# Now available in all your Claude Code sessions
+# Clean up the cloned repo (optional)
+rm -rf security-analyzer
+
+# Verify installation - start Claude Code in any project
 claude
+# Ask: "What skills are available?"
 ```
 
-### Option 3: Add to existing project
+The skill is now available in **every** Claude Code session.
+
+### Option 2: Install for a Single Project
 
 ```bash
-# Copy the .claude/skills directory to your project
-cp -r path/to/security-analyzer/.claude your-project/
+# Navigate to your project
+cd /path/to/your-project
 
-# Commit to share with your team
-cd your-project
-git add .claude
-git commit -m "Add security-analyzer skill"
+# Create the skills directory
+mkdir -p .claude/skills
+
+# Clone and copy the skill
+git clone https://github.com/Cornjebus/security-analyzer.git
+cp -r security-analyzer/.claude/skills/security-analyzer .claude/skills/
+
+# Clean up
+rm -rf security-analyzer
+
+# Start Claude Code
+claude
+# Ask: "Run a security scan"
 ```
+
+### Option 3: Add to Project and Share with Team
+
+```bash
+# Navigate to your project
+cd /path/to/your-project
+
+# Create the skills directory
+mkdir -p .claude/skills
+
+# Clone and copy the skill
+git clone https://github.com/Cornjebus/security-analyzer.git
+cp -r security-analyzer/.claude/skills/security-analyzer .claude/skills/
+rm -rf security-analyzer
+
+# Commit to version control
+git add .claude/skills
+git commit -m "Add security-analyzer skill"
+git push
+
+# Team members just pull and the skill is automatically available
+```
+
+When teammates pull the repo, the skill is **automatically discovered** — no additional setup needed.
+
+### Verify Installation
+
+In any Claude Code session:
+```
+You: "What skills are available?"
+You: "Run a security scan"
+```
+
+If Claude recognizes the security-analyzer skill, installation was successful.
 
 ## Usage
 
