@@ -25,7 +25,8 @@ def parse_package_json(path: Path) -> list[dict]:
     deps = []
     try:
         data = json.loads(path.read_text())
-        for dep_type in ['dependencies', 'devDependencies']:
+        # Standard dependencies (dict: name -> version)
+        for dep_type in ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies']:
             for name, version in data.get(dep_type, {}).items():
                 deps.append({
                     'name': name,
@@ -33,6 +34,15 @@ def parse_package_json(path: Path) -> list[dict]:
                     'type': 'npm',
                     'source': str(path)
                 })
+        
+        # Bundled dependencies (list of names)
+        for name in data.get('bundledDependencies', []):
+             deps.append({
+                'name': name,
+                'version': 'bundled',
+                'type': 'npm',
+                'source': str(path)
+            })
     except Exception as e:
         print(f"Warning: Could not parse {path}: {e}", file=sys.stderr)
     return deps
@@ -43,15 +53,22 @@ def parse_requirements(path: Path) -> list[dict]:
     try:
         for line in path.read_text().splitlines():
             line = line.strip()
-            if line and not line.startswith('#'):
-                match = re.match(r'^([a-zA-Z0-9_-]+)([=<>!]+)?(.+)?', line)
-                if match:
-                    deps.append({
-                        'name': match.group(1),
-                        'version': match.group(3) or 'latest',
-                        'type': 'pip',
-                        'source': str(path)
-                    })
+            if not line or line.startswith('#'):
+                continue
+            
+            # Remove inline comments
+            if '#' in line:
+                line = line.split('#', 1)[0].strip()
+            
+            # Match package name (including dots) and optional version specifier
+            match = re.match(r'^([a-zA-Z0-9_\-\.]+)(?:([=<>!~]+)(.+))?', line)
+            if match:
+                deps.append({
+                    'name': match.group(1),
+                    'version': match.group(3).strip() if match.group(3) else 'latest',
+                    'type': 'pip',
+                    'source': str(path)
+                })
     except Exception as e:
         print(f"Warning: Could not parse {path}: {e}", file=sys.stderr)
     return deps
