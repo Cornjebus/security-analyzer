@@ -7,11 +7,12 @@ Use web_search for CISA KEV and NVD data.
 
 import json
 import sys
+import math
 import urllib.request
 import urllib.error
 from typing import Optional
 
-OSV_API = "https://api.osv.dev/v1/query"
+OSV_BATCH_API = "https://api.osv.dev/v1/querybatch"
 
 ECOSYSTEM_MAP = {
     'npm': 'npm',
@@ -23,39 +24,96 @@ ECOSYSTEM_MAP = {
     'nuget': 'NuGet'
 }
 
-def query_osv(package: str, version: str, ecosystem: str) -> list[dict]:
-    """Query OSV.dev for vulnerabilities."""
-    osv_ecosystem = ECOSYSTEM_MAP.get(ecosystem, ecosystem)
-    
-    payload = {
-        "package": {
-            "name": package,
-            "ecosystem": osv_ecosystem
-        }
-    }
-    
-    if version and version != 'latest':
-        payload["version"] = version
+def query_osv_batch(queries: list[dict]) -> list[dict]:
+    """Query OSV.dev for multiple vulnerabilities in batch."""
+    payload = {"queries": queries}
     
     try:
         req = urllib.request.Request(
-            OSV_API,
+            OSV_BATCH_API,
             data=json.dumps(payload).encode('utf-8'),
             headers={'Content-Type': 'application/json'},
             method='POST'
         )
         
-        with urllib.request.urlopen(req, timeout=10) as response:
+        with urllib.request.urlopen(req, timeout=30) as response:
             data = json.loads(response.read().decode('utf-8'))
-            return data.get('vulns', [])
-    except urllib.error.HTTPError as e:
-        if e.code == 404:
-            return []
-        print(f"HTTP error querying OSV for {package}: {e}", file=sys.stderr)
-        return []
+            return data.get('results', [])
     except Exception as e:
-        print(f"Error querying OSV for {package}: {e}", file=sys.stderr)
+        print(f"Error querying OSV batch: {e}", file=sys.stderr)
         return []
+
+def calculate_cvss3_score(vector_str: str) -> float:
+    """Calculate CVSS v3.1 base score from vector string."""
+    try:
+        # Default metric values
+        metrics = {
+            'AV': {'N': 0.85, 'A': 0.62, 'L': 0.55, 'P': 0.2},
+            'AC': {'L': 0.77, 'H': 0.44},
+            'PR': {'N': 0.85, 'L': 0.62, 'H': 0.27},  # Scope Unchanged
+            'UI': {'N': 0.85, 'R': 0.62},
+            'S':  {'U': 1.0, 'C': 1.0},
+            'C':  {'H': 0.56, 'L': 0.22, 'N': 0.0},
+            'I':  {'H': 0.56, 'L': 0.22, 'N': 0.0},
+            'A':  {'H': 0.56, 'L': 0.22, 'N': 0.0}
+        }
+        
+        # PR Scope Changed values
+        pr_scope_changed = {'N': 0.85, 'L': 0.68, 'H': 0.50}
+
+        # Parse vector
+        parts = vector_str.split('/')
+        if not parts[0].startswith('CVSS:3'):
+            return 0.0
+        
+        vector = {}
+        for part in parts[1:]:
+            if ':' in part:
+                k, v = part.split(':')
+                vector[k] = v
+        
+        # Check Scope
+        scope = vector.get('S', 'U')
+        
+        # Metrics
+        av = metrics['AV'].get(vector.get('AV', '_'), 0)
+        ac = metrics['AC'].get(vector.get('AC', '_'), 0)
+        
+        pr_val = vector.get('PR', '_')
+        if scope == 'C':
+            pr = pr_scope_changed.get(pr_val, 0)
+        else:
+            pr = metrics['PR'].get(pr_val, 0)
+            
+        ui = metrics['UI'].get(vector.get('UI', '_'), 0)
+        c = metrics['C'].get(vector.get('C', '_'), 0)
+        i = metrics['I'].get(vector.get('I', '_'), 0)
+        a = metrics['A'].get(vector.get('A', '_'), 0)
+        
+        # Calculate Impact (ISS)
+        iss = 1 - ((1 - c) * (1 - i) * (1 - a))
+        
+        if scope == 'U':
+            impact = 6.42 * iss
+        else:
+            impact = 7.52 * (iss - 0.029) - 3.25 * math.pow(iss - 0.02, 15)
+            
+        # Calculate Exploitability
+        exploitability = 8.22 * av * ac * pr * ui
+        
+        if impact <= 0:
+            base_score = 0
+        else:
+            if scope == 'U':
+                base_score = min((impact + exploitability), 10)
+            else:
+                base_score = min(1.08 * (impact + exploitability), 10)
+                
+        # Roundup to 1 decimal place
+        return math.ceil(base_score * 10) / 10.0
+        
+    except Exception:
+        return 0.0
 
 def extract_severity(vuln: dict) -> dict:
     """Extract severity info from OSV vulnerability."""
@@ -66,8 +124,8 @@ def extract_severity(vuln: dict) -> dict:
             score_str = s.get('score', '')
             # Parse CVSS vector or score
             if '/' in score_str:
-                # It's a vector, extract base score would need parsing
                 severity['vector'] = score_str
+                severity['score'] = calculate_cvss3_score(score_str)
             else:
                 try:
                     severity['score'] = float(score_str)
@@ -122,22 +180,51 @@ def format_vulnerability(vuln: dict, package: str, ecosystem: str) -> dict:
     }
 
 def scan_dependencies(inventory: dict) -> list[dict]:
-    """Scan all dependencies for vulnerabilities."""
+    """Scan all dependencies for vulnerabilities using batch query."""
     vulnerabilities = []
+    dependencies = inventory.get('dependencies', [])
     
-    for dep in inventory.get('dependencies', []):
+    if not dependencies:
+        return []
+        
+    # Prepare batch queries
+    queries = []
+    for dep in dependencies:
         name = dep.get('name')
         version = dep.get('version', '')
         ecosystem = dep.get('type', 'npm')
+        osv_ecosystem = ECOSYSTEM_MAP.get(ecosystem, ecosystem)
         
-        vulns = query_osv(name, version, ecosystem)
-        
-        for vuln in vulns:
-            formatted = format_vulnerability(vuln, name, ecosystem)
-            formatted['source_file'] = dep.get('source')
-            formatted['installed_version'] = version
-            vulnerabilities.append(formatted)
+        q = {
+            "package": {
+                "name": name,
+                "ecosystem": osv_ecosystem
+            }
+        }
+        if version and version != 'latest' and version != 'bundled':
+             q["version"] = version
+        queries.append(q)
     
+    # Process in chunks of 1000 (OSV limit)
+    chunk_size = 1000
+    for i in range(0, len(queries), chunk_size):
+        batch = queries[i:i+chunk_size]
+        batch_deps = dependencies[i:i+chunk_size]
+        
+        results = query_osv_batch(batch)
+        
+        # OSV batch returns results in same order
+        for dep, result in zip(batch_deps, results):
+            if not result:
+                continue
+                
+            vulns = result.get('vulns', [])
+            for vuln in vulns:
+                formatted = format_vulnerability(vuln, dep.get('name'), dep.get('type', 'npm'))
+                formatted['source_file'] = dep.get('source')
+                formatted['installed_version'] = dep.get('version')
+                vulnerabilities.append(formatted)
+                
     return vulnerabilities
 
 def calculate_risk_score(vuln: dict, is_in_kev: bool = False) -> float:
