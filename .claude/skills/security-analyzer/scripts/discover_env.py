@@ -8,16 +8,17 @@ import json
 import os
 import re
 import sys
+import fnmatch
 from pathlib import Path
 from typing import Any
 
 def find_files(root: str, patterns: list[str]) -> list[Path]:
     """Find files matching glob patterns."""
     root_path = Path(root)
-    found = []
+    found = set()
     for pattern in patterns:
-        found.extend(root_path.rglob(pattern))
-    return [f for f in found if f.is_file() and 'node_modules' not in str(f) and '.git' not in str(f)]
+        found.update(root_path.rglob(pattern))
+    return [f for f in list(found) if f.is_file() and 'node_modules' not in str(f) and '.git' not in str(f)]
 
 def parse_package_json(path: Path) -> list[dict]:
     """Extract dependencies from package.json."""
@@ -108,7 +109,7 @@ def check_secrets_exposure(root: str) -> dict:
     for env_file in env_files:
         rel_path = str(env_file.relative_to(root))
         is_ignored = any(
-            rel_path == pattern.strip() or 
+            fnmatch.fnmatch(rel_path, pattern.strip()) or 
             rel_path.startswith(pattern.strip().rstrip('/'))
             for pattern in gitignore_patterns if pattern.strip() and not pattern.startswith('#')
         )
